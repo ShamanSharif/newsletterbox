@@ -43,24 +43,21 @@ def fetch_todays_email_from_sender(sender):
 
 def clean_email_html(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
+    
+    # Create a new, clean HTML structure
+    new_soup = BeautifulSoup("<html><head><title>Cleaned Email</title></head><body></body></html>", "html.parser")
+    body = new_soup.body
 
     # Add header
-    header = soup.new_tag("h1")
+    header = new_soup.new_tag("h1")
     header.string = "NewsLetterBox"
-    soup.body.insert(0, header)
+    body.append(header)
 
-    # Remove tracking pixels
-    for img in soup.find_all("img"):
-        if "width" in img.attrs and "height" in img.attrs:
-            if img["width"] == "1" and img["height"] == "1":
-                img.decompose()
+    # Find and append all content tags
+    for tag in soup.find_all(["h1", "h2", "h3", "h4", "p", "img", "ul", "ol"]):
+        body.append(tag)
 
-    # Remove specific footer section
-    footer = soup.find("td", class_="b", bgcolor="#030712")
-    if footer:
-        footer.decompose()
-
-    return str(soup)
+    return str(new_soup)
 
 
 def create_pdf(html_content, output_path):
