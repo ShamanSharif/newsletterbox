@@ -14,13 +14,17 @@ IMAP_SERVER = os.getenv("IMAP_SERVER")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 
 
-def fetch_todays_email_from_sender(sender):
+def fetch_todays_email_from_sender(sender, target_date=None):
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL_USER, EMAIL_PASSWORD)
     mail.select("inbox")
 
-    today = date.today().strftime("%d-%b-%Y")
-    search_criteria = f'(FROM "{sender}" ON "{today}")'
+    if target_date:
+        search_date = target_date.strftime("%d-%b-%Y")
+    else:
+        search_date = date.today().strftime("%d-%b-%Y")
+
+    search_criteria = f'(FROM "{sender}" ON "{search_date}")'
 
     status, data = mail.search(None, search_criteria)
     mail_ids = data[0]
@@ -45,7 +49,8 @@ def clean_email_html(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
 
     # Create a new, clean HTML structure with JetBrains Mono font and minimalist styling
-    new_soup = BeautifulSoup("""
+    new_soup = BeautifulSoup(
+        """
     <html>
         <head>
             <title>Cleaned Email</title>
@@ -86,7 +91,9 @@ def clean_email_html(html_content):
         </head>
         <body></body>
     </html>
-    """, "html.parser")
+    """,
+        "html.parser",
+    )
     body = new_soup.body
 
     # Add header
@@ -98,21 +105,21 @@ def clean_email_html(html_content):
     content_tags = soup.find_all(["h1", "h2", "h3", "h4", "p", "img", "ul", "ol"])
     for tag in content_tags:
         # Skip tags that are inside a list, as they will be handled by the list processing
-        if tag.find_parent(['ul', 'ol']):
+        if tag.find_parent(["ul", "ol"]):
             continue
 
         # Add a separator before each new major heading
         if tag.name in ["h1", "h2", "h3", "h4"]:
-             body.append(new_soup.new_tag("hr"))
+            body.append(new_soup.new_tag("hr"))
 
         # For lists, we need to rebuild them to ensure they are clean
         if tag.name in ["ul", "ol"]:
             new_list = new_soup.new_tag(tag.name)
-            for li in tag.find_all('li', recursive=False): # Only direct children
-                new_list.append(li.extract()) # Extract and append the li
+            for li in tag.find_all("li", recursive=False):  # Only direct children
+                new_list.append(li.extract())  # Extract and append the li
             body.append(new_list)
         else:
-            body.append(tag.extract()) # Extract and append other tags
+            body.append(tag.extract())  # Extract and append other tags
 
     return str(new_soup)
 
@@ -122,7 +129,26 @@ def create_pdf(html_content, output_path):
 
 
 if __name__ == "__main__":
-    email_message = fetch_todays_email_from_sender(SENDER_EMAIL)
+    import sys
+    from datetime import datetime
+
+    # Parse command line arguments for date (year month day)
+    if len(sys.argv) == 4:
+        try:
+            year = int(sys.argv[1])
+            month = int(sys.argv[2])
+            day = int(sys.argv[3])
+            target_date = datetime(year, month, day).date()
+        except ValueError:
+            print("Error: Invalid date format. Use: uv run main.py YYYY MM DD")
+            sys.exit(1)
+    else:
+        # Default to today's date if no arguments provided
+        target_date = date.today()
+        print(f"No date specified, using today's date: {target_date}")
+
+    print(f"Fetching emails from {target_date.strftime('%Y-%m-%d')}")
+    email_message = fetch_todays_email_from_sender(SENDER_EMAIL, target_date)
 
     if email_message:
         html_content = ""
@@ -138,8 +164,8 @@ if __name__ == "__main__":
             cleaned_html = clean_email_html(html_content)
             if not os.path.exists("output"):
                 os.makedirs("output")
-            today_str = date.today().strftime("%Y-%m-%d")
-            output_pdf_path = f"output/{today_str}.pdf"
+            target_date_str = target_date.strftime("%Y-%m-%d")
+            output_pdf_path = f"output/{target_date_str}.pdf"
             create_pdf(cleaned_html, output_pdf_path)
             print(f"PDF created at {output_pdf_path}")
         else:
