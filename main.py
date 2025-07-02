@@ -49,10 +49,11 @@ def clean_email_html(html_content):
     <html>
         <head>
             <title>Cleaned Email</title>
-            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
             <style>
                 body {
-                    font-family: 'JetBrains Mono', monospace;
+                    font-family: 'Raleway', sans-serif;
+                    font-size: 14px;
                     line-height: 1.6;
                     max-width: 800px;
                     margin: 20px auto;
