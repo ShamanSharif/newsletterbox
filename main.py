@@ -8,17 +8,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ZOHO_EMAIL = os.getenv("ZOHO_EMAIL")
-ZOHO_PASSWORD = os.getenv("ZOHO_PASSWORD")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 IMAP_SERVER = os.getenv("IMAP_SERVER")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
-
-from datetime import date
 
 
 def fetch_todays_email_from_sender(sender):
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-    mail.login(ZOHO_EMAIL, ZOHO_PASSWORD)
+    mail.login(EMAIL_USER, EMAIL_PASSWORD)
     mail.select("inbox")
 
     today = date.today().strftime("%d-%b-%Y")
