@@ -52,10 +52,20 @@ def clean_email_html(html_content):
     header = new_soup.new_tag("h1")
     header.string = "NewsLetterBox"
     body.append(header)
+    body.append(new_soup.new_tag("hr"))
 
     # Find and append all content tags
     for tag in soup.find_all(["h1", "h2", "h3", "h4", "p", "img", "ul", "ol"]):
-        body.append(tag)
+        if tag.name in ["h1", "h2", "h3", "h4"]:
+            body.append(tag)
+            body.append(new_soup.new_tag("hr"))
+        elif tag.name in ["ul", "ol"]:
+            new_list = new_soup.new_tag(tag.name)
+            for li in tag.find_all("li"):
+                new_list.append(li)
+            body.append(new_list)
+        else:
+            body.append(tag)
 
     return str(new_soup)
 
