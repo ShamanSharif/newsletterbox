@@ -43,29 +43,75 @@ def fetch_todays_email_from_sender(sender):
 
 def clean_email_html(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
-    
-    # Create a new, clean HTML structure
-    new_soup = BeautifulSoup("<html><head><title>Cleaned Email</title></head><body></body></html>", "html.parser")
+
+    # Create a new, clean HTML structure with JetBrains Mono font and minimalist styling
+    new_soup = BeautifulSoup("""
+    <html>
+        <head>
+            <title>Cleaned Email</title>
+            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    font-family: 'JetBrains Mono', monospace;
+                    line-height: 1.6;
+                    max-width: 800px;
+                    margin: 20px auto;
+                    padding: 0 20px;
+                    color: #333;
+                }
+                hr {
+                    border: 0;
+                    height: 1px;
+                    background-color: #ccc;
+                    margin: 2em 0;
+                }
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    display: block;
+                    margin: 1.5em auto;
+                    border-radius: 8px;
+                }
+                ul, ol {
+                    padding-left: 25px;
+                }
+                li {
+                    margin-bottom: 0.5em;
+                }
+                a {
+                    color: #0C4A6E;
+                }
+            </style>
+        </head>
+        <body></body>
+    </html>
+    """, "html.parser")
     body = new_soup.body
 
     # Add header
     header = new_soup.new_tag("h1")
     header.string = "NewsLetterBox"
     body.append(header)
-    body.append(new_soup.new_tag("hr"))
 
-    # Find and append all content tags
-    for tag in soup.find_all(["h1", "h2", "h3", "h4", "p", "img", "ul", "ol"]):
+    # Process and move content tags
+    content_tags = soup.find_all(["h1", "h2", "h3", "h4", "p", "img", "ul", "ol"])
+    for tag in content_tags:
+        # Skip tags that are inside a list, as they will be handled by the list processing
+        if tag.find_parent(['ul', 'ol']):
+            continue
+
+        # Add a separator before each new major heading
         if tag.name in ["h1", "h2", "h3", "h4"]:
-            body.append(tag)
-            body.append(new_soup.new_tag("hr"))
-        elif tag.name in ["ul", "ol"]:
+             body.append(new_soup.new_tag("hr"))
+
+        # For lists, we need to rebuild them to ensure they are clean
+        if tag.name in ["ul", "ol"]:
             new_list = new_soup.new_tag(tag.name)
-            for li in tag.find_all("li"):
-                new_list.append(li)
+            for li in tag.find_all('li', recursive=False): # Only direct children
+                new_list.append(li.extract()) # Extract and append the li
             body.append(new_list)
         else:
-            body.append(tag)
+            body.append(tag.extract()) # Extract and append other tags
 
     return str(new_soup)
 
