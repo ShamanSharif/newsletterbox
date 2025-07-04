@@ -48,6 +48,26 @@ def fetch_todays_email_from_sender(sender, target_date=None):
 def clean_email_html(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
 
+    # Find the element containing "Farhan" and remove everything after it
+    farhan_element = soup.find(string=lambda text: "Farhan" in text if text else False)
+    if farhan_element:
+        element_to_keep = farhan_element.find_parent()
+        if element_to_keep:
+            for element in element_to_keep.find_all_next():
+                element.decompose()
+
+    # Find and remove the "unsubscribe" link and its parent element
+    unsubscribe_element = soup.find(
+        string=lambda text: "Update your email preferences or unsubscribe here"
+        in text
+        if text
+        else False
+    )
+    if unsubscribe_element:
+        element_to_remove = unsubscribe_element.find_parent()
+        if element_to_remove:
+            element_to_remove.decompose()
+
     # Create a new, clean HTML structure with JetBrains Mono font and minimalist styling
     new_soup = BeautifulSoup(
         """
