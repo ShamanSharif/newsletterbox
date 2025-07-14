@@ -11,10 +11,20 @@ load_dotenv()
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 IMAP_SERVER = os.getenv("IMAP_SERVER")
-SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+
+# A list of dictionaries for the senders
+SENDERS = [
+    {"name": "Muggle Memo", "email": "mugglememo@newsletter.mugglememo.com"},
+    {"name": "Rundown AI", "email": "news@daily.therundown.ai"},
+    {"name": "Superhuman", "email": "superhuman@mail.joinsuperhuman.ai"},
+    # Add other senders here
+]
 
 
-def fetch_todays_email_from_sender(sender, target_date=None):
+def fetch_todays_email_from_sender(sender_email, target_date=None):
+    """
+    Fetches the latest email from a specific sender on a given date.
+    """
     mail = imaplib.IMAP4_SSL(IMAP_SERVER)
     mail.login(EMAIL_USER, EMAIL_PASSWORD)
     mail.select("inbox")
@@ -24,51 +34,61 @@ def fetch_todays_email_from_sender(sender, target_date=None):
     else:
         search_date = date.today().strftime("%d-%b-%Y")
 
-    search_criteria = f'(FROM "{sender}" ON "{search_date}")'
+    search_criteria = f'(FROM "{sender_email}" ON "{search_date}")'
 
     status, data = mail.search(None, search_criteria)
-    mail_ids = data[0]
-    id_list = mail_ids.split()
-
-    if not id_list:
+    if status != "OK":
         return None
 
-    latest_email_id = id_list[-1]
+    mail_ids = data[0].split()
+    if not mail_ids:
+        return None
 
+    latest_email_id = mail_ids[-1]
     status, data = mail.fetch(latest_email_id, "(RFC822)")
+    if status != "OK":
+        return None
 
     for response_part in data:
         if isinstance(response_part, tuple):
-            msg = email.message_from_bytes(response_part[1])
-            return msg
+            return email.message_from_bytes(response_part[1])
 
     return None
 
 
-def clean_email_html(html_content):
+def clean_email_html(html_content, sender_name):
+    """
+    Cleans the HTML content of the email.
+    Custom cleaning logic can be added here based on the sender.
+    """
     soup = BeautifulSoup(html_content, "html.parser")
 
-    # Find the element containing "Farhan" and remove everything after it
-    farhan_element = soup.find(string=lambda text: "Farhan" in text if text else False)
-    if farhan_element:
-        element_to_keep = farhan_element.find_parent()
-        if element_to_keep:
-            for element in element_to_keep.find_all_next():
-                element.decompose()
+    # Generic cleaning (can be expanded)
+    if sender_name == "Muggle Memo":
+        # Find the element containing "Farhan" and remove everything after it
+        farhan_element = soup.find(
+            string=lambda text: "Farhan" in text if text else False
+        )
+        if farhan_element:
+            element_to_keep = farhan_element.find_parent()
+            if element_to_keep:
+                for element in element_to_keep.find_all_next():
+                    element.decompose()
 
-    # Find and remove the "unsubscribe" link and its parent element
-    unsubscribe_element = soup.find(
-        string=lambda text: "Update your email preferences or unsubscribe here"
-        in text
-        if text
-        else False
-    )
-    if unsubscribe_element:
-        element_to_remove = unsubscribe_element.find_parent()
-        if element_to_remove:
-            element_to_remove.decompose()
+        # Find and remove the "unsubscribe" link and its parent element
+        unsubscribe_element = soup.find(
+            string=lambda text: (
+                "Update your email preferences or unsubscribe here" in text
+                if text
+                else False
+            )
+        )
+        if unsubscribe_element:
+            element_to_remove = unsubscribe_element.find_parent()
+            if element_to_remove:
+                element_to_remove.decompose()
 
-    # Create a new, clean HTML structure with JetBrains Mono font and minimalist styling
+    # Create a new, clean HTML structure
     new_soup = BeautifulSoup(
         """
     <html>
@@ -118,33 +138,31 @@ def clean_email_html(html_content):
 
     # Add header
     header = new_soup.new_tag("h1")
-    header.string = "NewsLetterBox"
+    header.string = sender_name
     body.append(header)
 
     # Process and move content tags
     content_tags = soup.find_all(["h1", "h2", "h3", "h4", "p", "img", "ul", "ol"])
     for tag in content_tags:
-        # Skip tags that are inside a list, as they will be handled by the list processing
         if tag.find_parent(["ul", "ol"]):
             continue
-
-        # Add a separator before each new major heading
         if tag.name in ["h1", "h2", "h3", "h4"]:
             body.append(new_soup.new_tag("hr"))
-
-        # For lists, we need to rebuild them to ensure they are clean
         if tag.name in ["ul", "ol"]:
             new_list = new_soup.new_tag(tag.name)
-            for li in tag.find_all("li", recursive=False):  # Only direct children
-                new_list.append(li.extract())  # Extract and append the li
+            for li in tag.find_all("li", recursive=False):
+                new_list.append(li.extract())
             body.append(new_list)
         else:
-            body.append(tag.extract())  # Extract and append other tags
+            body.append(tag.extract())
 
     return str(new_soup)
 
 
 def create_pdf(html_content, output_path):
+    """
+    Creates a PDF from HTML content.
+    """
     HTML(string=html_content).write_pdf(output_path)
 
 
@@ -152,7 +170,6 @@ if __name__ == "__main__":
     import sys
     from datetime import datetime
 
-    # Parse command line arguments for date (year month day)
     if len(sys.argv) == 4:
         try:
             year = int(sys.argv[1])
@@ -160,35 +177,45 @@ if __name__ == "__main__":
             day = int(sys.argv[3])
             target_date = datetime(year, month, day).date()
         except ValueError:
-            print("Error: Invalid date format. Use: uv run main.py YYYY MM DD")
+            print("Error: Invalid date format. Use: python main.py YYYY MM DD")
             sys.exit(1)
     else:
-        # Default to today's date if no arguments provided
         target_date = date.today()
         print(f"No date specified, using today's date: {target_date}")
 
-    print(f"Fetching emails from {target_date.strftime('%Y-%m-%d')}")
-    email_message = fetch_todays_email_from_sender(SENDER_EMAIL, target_date)
+    print(f"Fetching emails for {target_date.strftime('%Y-%m-%d')}")
 
-    if email_message:
-        html_content = ""
-        if email_message.is_multipart():
-            for part in email_message.walk():
-                if part.get_content_type() == "text/html":
-                    html_content = part.get_payload(decode=True).decode()
-                    break
-        else:
-            html_content = email_message.get_payload(decode=True).decode()
+    for sender in SENDERS:
+        sender_name = sender["name"]
+        sender_email = sender["email"]
 
-        if html_content:
-            cleaned_html = clean_email_html(html_content)
-            if not os.path.exists("output"):
-                os.makedirs("output")
-            target_date_str = target_date.strftime("%Y-%m-%d")
-            output_pdf_path = f"output/{target_date_str}.pdf"
-            create_pdf(cleaned_html, output_pdf_path)
-            print(f"PDF created at {output_pdf_path}")
+        print(f"--> Checking for '{sender_name}' from '{sender_email}'")
+
+        email_message = fetch_todays_email_from_sender(sender_email, target_date)
+
+        if email_message:
+            html_content = ""
+            if email_message.is_multipart():
+                for part in email_message.walk():
+                    if part.get_content_type() == "text/html":
+                        html_content = part.get_payload(decode=True).decode()
+                        break
+            else:
+                html_content = email_message.get_payload(decode=True).decode()
+
+            if html_content:
+                cleaned_html = clean_email_html(html_content, sender_name)
+
+                output_dir = os.path.join("output", sender_name)
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+
+                target_date_str = target_date.strftime("%Y-%m-%d")
+                output_pdf_path = os.path.join(output_dir, f"{target_date_str}.pdf")
+
+                create_pdf(cleaned_html, output_pdf_path)
+                print(f"    PDF created at {output_pdf_path}")
+            else:
+                print("    No HTML content found in the email.")
         else:
-            print("No HTML content found in the email.")
-    else:
-        print("Could not fetch the latest email.")
+            print("    No email found for this sender on the specified date.")
