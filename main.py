@@ -14,7 +14,7 @@ IMAP_SERVER = os.getenv("IMAP_SERVER")
 
 # A list of dictionaries for the senders
 SENDERS = [
-    {"name": "Muggle Memo", "email": "mugglememo@newsletter.mugglememo.com"},
+    {"name": "Muggle Memo", "email": "mugglememo@mail.khalidfarhan.com"},
     {"name": "Rundown AI", "email": "news@daily.therundown.ai"},
     {"name": "Superhuman", "email": "superhuman@mail.joinsuperhuman.ai"},
     # Add other senders here
